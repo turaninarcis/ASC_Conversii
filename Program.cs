@@ -70,10 +70,6 @@ namespace Conversii
                 nr=nr.Substring(1);
             }
         }
-
-
-        
-
         private static void PrelucrareDate(string number, int b1,int b2)
         {
             int NumberInBase10;
@@ -107,14 +103,6 @@ namespace Conversii
 
         }
         
- 
-       
-
-
-        
-
-
-
 
         #region UtilityFunctions
         private static double TransformFractionDigitsFromBaseXToBase10(string number,int b1)
