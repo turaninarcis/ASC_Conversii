@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using System.Reflection.Metadata.Ecma335;
 
 namespace Conversii
 {
@@ -6,19 +7,32 @@ namespace Conversii
     {
         static int b1, b2;
         static string nr;
+        static int maxDigits=15;
         static bool isNegative = false;
+        static bool isPeriodic;
         static char[] delimitatoare = { ',', '.' };
         static char[] numberCharacters = { '0','0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
         static void Main(string[] args)
         {
-            //IntroducereDate();
-            //IntroducereDate();
-            //PrelucrareDate(nr, b1, b2);
-            Console.WriteLine(TranformFractionDigitsFromBaseXToBase10("201", 3));
+            string CaracterIntrodus;
+            
+            do
+            {
+                Console.Clear();
+                IntroducereDate();
+                if (IsTheNumberInTheCorrectBase(nr, b1))
+                {
+                    PrelucrareDate(nr, b1, b2);
+
+                }
+                Console.WriteLine("Doriti sa mai efectuati niste transformari ? Y/N");
+                CaracterIntrodus = Console.ReadLine().ToUpper();
+                
+            } while (CaracterIntrodus=="Y");
         }
         private static void IntroducereDate()
         {
-            string cerinta = "Introduceti numarul urmat de baza acestuia si baza in care doriti sa transformati numarul";
+            string cerinta = "Introduceti numarul urmat de baza acestuia, baza in care doriti sa transformati numarul.\n\rOptional se pot adauga si numarul maxim de caractere pe care il doriti dupa virgula";
             Console.WriteLine(cerinta);
             string[] numere;
             bool parseSucceeded = false;
@@ -31,6 +45,11 @@ namespace Conversii
                 {
                     numere = SirulIntrodus.Split(separatoare, StringSplitOptions.RemoveEmptyEntries);
                     if (numere.Length == 3 && int.TryParse(numere[1], out b1) && int.TryParse(numere[2],out b2))
+                    {
+                        nr = numere[0];
+                        parseSucceeded = true;
+                    }
+                    else if(numere.Length==4 && int.TryParse(numere[1], out b1) && int.TryParse(numere[2], out b2) && int.TryParse(numere[3],out maxDigits))
                     {
                         nr = numere[0];
                         parseSucceeded = true;
@@ -68,7 +87,21 @@ namespace Conversii
                 string[] numberParts = number.Split(delimitatoare);
                 string integerDigits = numberParts[0];
                 string fractionalDigits= numberParts[1];
-                Console.WriteLine(integerDigits+ " "+ fractionalDigits);
+                string IntegerPart;
+                string FractionalPart;
+                if (b1==10)
+                {
+                    IntegerPart = FromBase10ToBaseX(int.Parse(integerDigits), b2);
+                    FractionalPart = TransformFractionDigitsFromBase10ToBaseX(int.Parse(fractionalDigits), b2);
+                }
+                else 
+                {
+                    IntegerPart = FromBase10ToBaseX(FromBaseXToBase10(integerDigits, b1), b2);
+                    FractionalPart = TransformFractionDigitsFromBase10ToBaseX(TransformFractionDigitsFromBaseXToBase10(fractionalDigits, b1), b2);
+                }
+                
+                Console.WriteLine($"Numarul {number} in baza {b2} este {IntegerPart}.{FractionalPart}");
+
             }
 
 
@@ -84,7 +117,7 @@ namespace Conversii
 
 
         #region UtilityFunctions
-        private static double TranformFractionDigitsFromBaseXToBase10(string number,int b1)
+        private static double TransformFractionDigitsFromBaseXToBase10(string number,int b1)
         {
             double FractionalDigitsInBase10 = 0;
             int suma = 0;
@@ -93,11 +126,83 @@ namespace Conversii
 
             for(int i = 1;i<= caractere;i++)
             {
-                suma += int.Parse(number[i-1].ToString()) * (int)Math.Pow(b1, caractere - i);
+                suma += TransformCharacterToNumber(number[i-1]) * (int)Math.Pow(b1, caractere - i);
             }
 
             FractionalDigitsInBase10 = suma/Math.Pow(b1, caractere);
+            FractionalDigitsInBase10 = CheckForPeriodicNumber(FractionalDigitsInBase10);
             return FractionalDigitsInBase10;
+        }
+
+        private static string TransformFractionDigitsFromBase10ToBaseX(double number, int b2)
+        {
+            if (b2 == 10) return number.ToString();
+            while(number > 1) { number = number / 10; }
+            Queue<int> queue = new Queue<int>();
+            List<double> list = new List<double>();
+            string numberAfterTranformation = "";
+            while(number!=0&&queue.Count<=maxDigits)
+            {
+                if(list.Contains(number))
+                {
+                    isPeriodic = true;
+                    break;
+                }
+                list.Add(number);
+                number = number * b2;
+                number = Math.Round(number,10);
+                queue.Enqueue((int)number % b2);
+                number = number *10% 10/10;
+            }
+            while(queue.Count>0)
+            {
+                numberAfterTranformation+=TransformNumberToCharacter(queue.Dequeue());
+            }
+            if(isPeriodic) { return $"({numberAfterTranformation.ToString()})"; }
+            return numberAfterTranformation.ToString();
+            
+        }
+
+        private static double CheckForPeriodicNumber(double number)
+        {
+            
+            string numberString = number.ToString().Substring(2);
+            if(b2==10)return double.Parse(numberString);
+            int indexOfTheSecondAppearenceOfTheCharacter=0;
+            isPeriodic=false;
+            int i = 0;
+            while(isPeriodic==false&&i<(numberString.Length-1))
+            {
+                for(int j=i;j<numberString.Length;j++)
+                {
+                    bool numarulContineCifraCautataDeMaiMulteOri = numberString.Substring(j + 1).Contains(numberString[j]);
+                    if (numarulContineCifraCautataDeMaiMulteOri)
+                    {
+                        string firstSecvenceToBeAnalyzed;
+                        string secondSecvenceToBeAnalyzed;
+                        indexOfTheSecondAppearenceOfTheCharacter = numberString.IndexOf(numberString[j], j + 1);
+                        if (indexOfTheSecondAppearenceOfTheCharacter >= numberString.Length-1||indexOfTheSecondAppearenceOfTheCharacter==-1) break;
+                        try {firstSecvenceToBeAnalyzed = numberString.Substring(j + 1, indexOfTheSecondAppearenceOfTheCharacter - 1); }
+                        catch { isPeriodic = true; break; }
+                        
+                        if (indexOfTheSecondAppearenceOfTheCharacter + 1 + firstSecvenceToBeAnalyzed.Length < numberString.Length)
+                            secondSecvenceToBeAnalyzed = numberString.Substring(indexOfTheSecondAppearenceOfTheCharacter + 1, firstSecvenceToBeAnalyzed.Length);
+                        else break;
+                        if (secondSecvenceToBeAnalyzed.Equals(firstSecvenceToBeAnalyzed))
+                        {
+                            isPeriodic = true;
+                            break;
+                        }
+                    }
+                    else break;
+                }
+                i++;
+            }
+            if (isPeriodic == true)
+            {
+                return double.Parse(number.ToString().Substring(0, indexOfTheSecondAppearenceOfTheCharacter+2));
+            }
+            else return number;
         }
         private static int TransformCharacterToNumber(char character)
         {
@@ -122,7 +227,7 @@ namespace Conversii
                 default: throw new ArgumentException();
             }
         }
-        private static char TranformNumberToCharacter(int number)
+        private static char TransformNumberToCharacter(int number)
         {
 
             switch (number)
@@ -143,7 +248,7 @@ namespace Conversii
                 case 13: return 'D';
                 case 14: return 'E';
                 case 15: return 'F';
-                default: throw new ArgumentException();
+                default:return '0';
             }
         }
         private static bool IsTheNumberInTheCorrectBase(string number, int b1)
@@ -205,7 +310,7 @@ namespace Conversii
             }
             while(resturi.Count>0)
             {
-                convertedNumber += TranformNumberToCharacter(resturi.Pop());
+                convertedNumber += TransformNumberToCharacter(resturi.Pop());
             }    
             return convertedNumber;
         }
